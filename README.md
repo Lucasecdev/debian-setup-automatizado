@@ -21,4 +21,4 @@ Este repositório contém um script para automatizar a configuração de uma VM 
 > Execute na sua VM Debian já com rede configurada:
 
 ```bash
-bash <(curl -s https://raw.githubusercontent.com/SEU_USUARIO/debian-setup-automatizado/main/configurador.sh)
+bash <(curl -s https://raw.githubusercontent.com/Lucasecdev/debian-setup-automatizado/main/configurador.sh)
