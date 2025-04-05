@@ -60,9 +60,20 @@ echo "figlet 'DEBIAN 12'" | sudo tee -a /etc/profile > /dev/null
 sudo sed -i 's|^#Banner none|Banner /etc/issue.net|' /etc/ssh/sshd_config
 
 echo "[8/8] Configurando Google Authenticator para root e lucas..."
-sudo sed -i '/@include common-auth/a auth required pam_google_authenticator.so nullok' /etc/pam.d/sshd
-sudo sed -i 's/^#ChallengeResponseAuthentication no/ChallengeResponseAuthentication yes/' /etc/ssh/sshd_config
-sudo sed -i 's/^PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+
+# Adiciona regra no PAM do SSH, se ainda não existir
+if ! grep -q "auth required pam_google_authenticator.so" /etc/pam.d/sshd; then
+    sudo sed -i '/@include common-auth/a auth required pam_google_authenticator.so' /etc/pam.d/sshd
+fi
+
+# Ajusta o sshd_config para 2FA com senha + OTP
+sudo sed -i 's/^#\?ChallengeResponseAuthentication.*/ChallengeResponseAuthentication yes/' /etc/ssh/sshd_config
+sudo sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+if ! grep -q "^AuthenticationMethods" /etc/ssh/sshd_config; then
+    echo "AuthenticationMethods password,keyboard-interactive" | sudo tee -a /etc/ssh/sshd_config
+else
+    sudo sed -i 's/^AuthenticationMethods.*/AuthenticationMethods password,keyboard-interactive/' /etc/ssh/sshd_config
+fi
 
 # Instruções finais
 cat <<FIM
