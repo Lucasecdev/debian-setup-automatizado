@@ -1,20 +1,16 @@
 #!/bin/bash
 
-# Garantir que sudo e curl estejam disponíveis
-echo "[0/8] Verificando pré-requisitos..."
+# Variáveis editáveis
+NOME_USUARIO="Lucas"       # <- Altere aqui com seu nome
+INTERFACE_REDE="eth1"
+SSH_PORTA=7500
 
-if ! command -v sudo &>/dev/null; then
-    echo "→ Instalando 'sudo'..."
-    apt update && apt install -y sudo
-fi
+# 1. Remove repositório do CD-ROM
+echo "[1/7] Corrigindo sources.list..."
+sudo sed -i '/cdrom:/s/^/#/' /etc/apt/sources.list
 
-if ! command -v curl &>/dev/null; then
-    echo "→ Instalando 'curl'..."
-    sudo apt install -y curl
-fi
-
-echo "[1/8] Corrigindo repositórios do Debian 12..."
-sudo tee /etc/apt/sources.list > /dev/null <<EOF
+# 2. Adiciona repositórios oficiais
+cat <<EOF | sudo tee /etc/apt/sources.list > /dev/null
 deb http://ftp.br.debian.org/debian/ bookworm main contrib non-free-firmware
 deb-src http://ftp.br.debian.org/debian/ bookworm main contrib non-free-firmware
 
@@ -25,65 +21,31 @@ deb http://ftp.br.debian.org/debian/ bookworm-updates main contrib non-free-firm
 deb-src http://ftp.br.debian.org/debian/ bookworm-updates main contrib non-free-firmware
 EOF
 
-echo "[2/8] Atualizando pacotes..."
+# 3. Atualiza pacotes
+echo "[2/7] Atualizando sistema..."
 sudo apt update && sudo apt upgrade -y
 
-echo "[3/8] Configurando rede para interface eth1 (caso exista)..."
-if grep -q "allow-hotplug eth1" /etc/network/interfaces; then
-    echo "→ eth1 já está configurada."
-else
-    echo -e "\nallow-hotplug eth1\niface eth1 inet dhcp" | sudo tee -a /etc/network/interfaces
-    sudo systemctl restart networking
+# 4. Configura a interface de rede para iniciar com DHCP
+echo "[3/7] Configurando interface de rede: $INTERFACE_REDE..."
+if ! grep -q "$INTERFACE_REDE" /etc/network/interfaces; then
+    echo -e "\nauto $INTERFACE_REDE\niface $INTERFACE_REDE inet dhcp" | sudo tee -a /etc/network/interfaces
 fi
 
-echo "[4/8] Instalando pacotes essenciais..."
-sudo apt install -y vim net-tools aptitude htop cmatrix figlet openssh-server libpam-google-authenticator
+# 5. Instala pacotes
+echo "[4/7] Instalando pacotes necessários..."
+sudo apt install -y sudo vim net-tools aptitude htop cmatrix figlet openssh-server
 
-echo "[5/8] Criando usuário 'lucas' com sudo (se necessário)..."
-if id "lucas" &>/dev/null; then
-    echo "→ Usuário 'lucas' já existe."
-else
-    sudo useradd -m -s /bin/bash lucas
-    echo "lucas:senha123" | sudo chpasswd
-    sudo usermod -aG sudo lucas
-fi
-
-echo "[6/8] Configurando SSH na porta 7500..."
-sudo sed -i 's/^#Port 22/Port 7500/' /etc/ssh/sshd_config
-sudo sed -i 's/^#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
-
-echo "[7/8] Configurando banners com figlet..."
-figlet "Lucas" | sudo tee /etc/issue.net > /dev/null
-figlet "FATEC" | sudo tee /etc/issue > /dev/null
-echo "figlet 'DEBIAN 12'" | sudo tee -a /etc/profile > /dev/null
-
-sudo sed -i 's|^#Banner none|Banner /etc/issue.net|' /etc/ssh/sshd_config
-
-echo "[8/8] Configurando Google Authenticator para root e lucas..."
-sudo sed -i '/@include common-auth/a auth required pam_google_authenticator.so nullok' /etc/pam.d/sshd
-sudo sed -i 's/^#ChallengeResponseAuthentication no/ChallengeResponseAuthentication yes/' /etc/ssh/sshd_config
-sudo sed -i 's/^PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
-
-# Instruções finais
-cat <<FIM
-
-======================================================
-✅ Script finalizado!
-➡ Execute os seguintes comandos MANUALMENTE:
-------------------------------------------------------
-1. Para root:
-   google-authenticator
-
-2. Para o usuário lucas:
-   su - lucas
-   google-authenticator
-------------------------------------------------------
-⚠️ O SSH está na porta 7500.
-⚠️ Autenticação com senha está desativada.
-⚠️ Use Google Authenticator para logar.
-======================================================
-
-FIM
-
+# 6. Configura SSH na porta desejada
+echo "[5/7] Configurando SSH para porta $SSH_PORTA..."
+sudo sed -i "s/^#Port 22/Port $SSH_PORTA/" /etc/ssh/sshd_config
 sudo systemctl restart ssh
 
+# 7. Cria os banners com figlet
+echo "[6/7] Criando banners com figlet..."
+figlet "$NOME_USUARIO" | sudo tee /etc/issue.net > /dev/null
+figlet "FATEC" | sudo tee /etc/motd > /dev/null
+if ! grep -q "figlet \"DEBIAN 12\"" ~/.bashrc; then
+    echo 'figlet "DEBIAN 12"' >> ~/.bashrc
+fi
+
+echo "[7/7] Configuração concluída!"
